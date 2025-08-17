@@ -82,8 +82,8 @@ class Attack:
         print("4. Crack Handshake")
         print("5. Generate Password List")
         print("6. Restart Network Manager/ ensure this is up before executing 00")
-        print("00. find info about ap /run it first")
-        print("001. see Eapol un wiresherk")
+        print("00. find info about ap (run it first)")
+        print("001. see Eapol in wiresherk")
         print("0. Exit")
         choice = input("Enter your choice: ")
         return choice
