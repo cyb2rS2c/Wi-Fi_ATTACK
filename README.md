@@ -85,6 +85,12 @@ Welcome to the Attack Menu
 
 ---
 
+## ✨ Screenshots
+<img width="642" height="217" alt="image" src="https://github.com/user-attachments/assets/171f223e-016f-4716-bad8-d110b46bae22" />
+<img width="956" height="609" alt="image" src="https://github.com/user-attachments/assets/9248abd5-f035-4726-ac08-8aba8d8b7f00" />
+
+
+
 ## 🛑 Legal Disclaimer
 
 This software is provided for **educational** and **authorized testing** only. The authors are not responsible for any misuse or damage caused. Always get **explicit permission** before auditing any network.
