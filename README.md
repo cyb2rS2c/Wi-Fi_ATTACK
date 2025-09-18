@@ -36,19 +36,6 @@ sudo apt update
 sudo apt install aircrack-ng crunch wireshark network-manager
 ```
 
----
-
-## 📁 Project Structure
-
-```
-.
-├── wifi_cracker.py       # Main script (your provided code)
-├── GenCharlist.py         # Utility to generate password lists
-├── README.md              # This file
-└── generated_password_wifi.txt  # Default output file for passwords
-```
-
----
 
 ## ⚙️ Usage
 
@@ -62,6 +49,7 @@ cd Wi-Fi_ATTACK
 ### 2. Run the Tool
 
 ```bash
+sudo chmod + x mac_address_detector.py wifi_cracker.py GenCharlist.py
 sudo python3 wifi_cracker.py 
 ```
 
