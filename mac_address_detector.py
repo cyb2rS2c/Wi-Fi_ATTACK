@@ -65,7 +65,7 @@ def show_help():
     MAC Address Detector - Scan your network for devices based on IP range and MAC address.
 
     Usage:
-      python3 mac_checker.py <ip_range> <mac_address> [--only]
+      python3 mac_address_detector.py <ip_range> <mac_address> [--only]
 
     Options:
       <ip_range>       : The IP range to scan (e.g., 192.168.0.1-20 or 192.168.0.0/24).
@@ -74,13 +74,13 @@ def show_help():
       --help           : Show this help message.
 
     Example 1: Scan a range and display all results
-      python3 mac_checker.py 192.168.1.1-20
+      python3 mac_address_detector.py 192.168.1.1-20
 
     Example 2: Scan a range and search for a specific MAC address
-      python3 mac_checker.py 192.168.1.1-20 XX:XX:XX:XX:XX:XX
+      python3 mac_address_detector.py 192.168.1.1-20 XX:XX:XX:XX:XX:XX
 
     Example 3: Scan a range and only display the matching MAC address (if found)
-      python3 mac_checker.py 192.168.1.1-20 XX:XX:XX:XX:XX:XX --only
+      python3 mac_address_detector.py 192.168.1.1-20 XX:XX:XX:XX:XX:XX --only
 
     Author: cyb2rS2c
     """
