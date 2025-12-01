@@ -20,24 +20,8 @@ This tool is intended for security professionals and researchers on networks the
 
 ---
 
-## 🧰 Requirements
 
-Ensure the following are installed:
-
-* Python 3.x
-* Linux OS with `aircrack-ng`, `crunch`, and `wireshark`
-* GNOME Terminal
-* `nmcli` (NetworkManager CLI)
-
-Install dependencies on Debian-based systems:
-
-```bash
-sudo apt update
-sudo apt install aircrack-ng crunch wireshark network-manager
-```
-
-
-## ⚙️ Usage
+##  Usage
 
 ### 1. Clone the Repository
 
@@ -49,8 +33,7 @@ cd Wi-Fi_ATTACK
 ### 2. Run the Tool
 
 ```bash
-sudo chmod + x mac_address_detector.py wifi_cracker.py GenCharlist.py
-sudo python3 wifi_cracker.py 
+chmod +x setup.sh;./setup.sh
 ```
 
 Root privileges are required for most network interface operations.
@@ -65,7 +48,7 @@ Welcome to the Attack Menu
 2. Capture Handshake
 3. Denial of Service (DoS)
 4. Crack Handshake
-5. Generate Password List
+5. Generate Password List (Optional)
 6. Restart Network Manager/ ensure this is up before executing 00
 00. Find info about AP /run it first
 001. See EAPOL in Wireshark
