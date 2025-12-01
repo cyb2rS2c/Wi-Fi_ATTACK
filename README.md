@@ -7,7 +7,24 @@ This tool is intended for security professionals and researchers on networks the
 
 ---
 
-## 🚀 Features
+## Project Tree
+```
+├── assets (All password files created should be in this folder)
+│   └── john.lst 
+├── LICENSE
+├── README.md
+├── requirements.txt
+├── setup.sh
+└── src
+    ├── animation.py
+    ├── GenCharlist.py
+    ├── mac_address_detector.py
+    ├── network_scanner.py
+    └── wifi_cracker.py
+```
+
+
+## Features
 
 * Scan for Access Points and capture detailed information.
 * Detect and lock on target network channels.
