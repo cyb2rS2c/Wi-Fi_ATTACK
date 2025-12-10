@@ -2,7 +2,7 @@
 ![Python](https://img.shields.io/badge/Python-3.8%2B-blue?logo=python)
 ![Platform](https://img.shields.io/badge/%7C%20Linux-green?logo=linux)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
-![Version](https://img.shields.io/badge/Version-2.0-orange)
+![Version](https://img.shields.io/badge/Version-3.0-orange)
 
 ---
 This tool is a Python-based utility that automates the process of Wi-Fi network penetration testing, including handshake capture, password cracking, DoS attacks, and password list generation. It acts as a wrapper around powerful tools like `aircrack-ng`, `airodump-ng`, `aireplay-ng`, `crunch`, and `wireshark`.
