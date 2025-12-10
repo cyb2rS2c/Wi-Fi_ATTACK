@@ -2,7 +2,7 @@
 ![Python](https://img.shields.io/badge/Python-3.8%2B-blue?logo=python)
 ![Platform](https://img.shields.io/badge/%7C%20Linux-green?logo=linux)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
-![Version](https://img.shields.io/badge/Version-3.0-orange)
+![Version](https://img.shields.io/badge/Version-4.0-orange)
 
 ---
 This tool is a Python-based utility that automates the process of Wi-Fi network penetration testing, including handshake capture, password cracking, DoS attacks, and password list generation. It acts as a wrapper around powerful tools like `aircrack-ng`, `airodump-ng`, `aireplay-ng`, `crunch`, and `wireshark`.
@@ -46,17 +46,32 @@ This tool is intended for security professionals and researchers on networks the
 
 ##  Usage
 
+## Option 1: Install & Run via github
 ### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/cyb2rS2c/Wi-Fi_ATTACK.git
 cd Wi-Fi_ATTACK
 ```
-
 ## 2. Run 
 
 ```bash
 chmod +x setup.sh;source ./setup.sh
+```
+
+## Option 2: Install & Run via pip (Recommended)
+```
+# Create a virtual environment
+python3 -m venv testenv
+
+# Activate the virtual environment
+source testenv/bin/activate  # On macOS/Linux
+# testenv\Scripts\activate  # On Windows
+
+# Install the Wi-Fi-Attack package
+pip install Wi-Fi-Attack==4.0.0
+# Run the wifi-cracker tool
+wifi-cracker
 ```
 Root privileges are required for most network interface operations.
 
