@@ -65,8 +65,7 @@ chmod +x setup.sh;source ./setup.sh
 python3 -m venv testenv
 
 # Activate the virtual environment
-source testenv/bin/activate  # On macOS/Linux
-# testenv\Scripts\activate  # On Windows
+source testenv/bin/activate
 
 # Install the Wi-Fi-Attack package
 pip install Wi-Fi-Attack==4.0.1
