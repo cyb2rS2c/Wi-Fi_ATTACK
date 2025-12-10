@@ -66,12 +66,14 @@ Root privileges are required for most network interface operations.
 <img width="956" height="609" alt="image" src="https://github.com/user-attachments/assets/9248abd5-f035-4726-ac08-8aba8d8b7f00" />
 
 
-
 ## Legal Disclaimer
 
-This software is provided for **educational** and **authorized testing** only. The authors are not responsible for any misuse or damage caused. Always get **explicit permission** before auditing any network.
+This software is provided for **educational** and **authorized pentesting** only. The author is not responsible for any misuse or damage caused. Always get **explicit permission** before auditing any network.
 
 ---
+
+## Author
+cyb2rS2c - [GitHub Profile](https://github.com/cyb2rS2c)
 
 ## License
 
