@@ -56,7 +56,7 @@ cd Wi-Fi_ATTACK
 ## 2. Run 
 
 ```bash
-chmod +x setup.sh;./setup.sh
+chmod +x setup.sh;source ./setup.sh
 ```
 Root privileges are required for most network interface operations.
 
