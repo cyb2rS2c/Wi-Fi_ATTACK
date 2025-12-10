@@ -55,7 +55,7 @@ class Attack:
         for attempt in range(1, retries + 1):
 
             if self._is_iface_up(iface):
-                print(f"[✓] Interface {iface} is UP.")
+                print(f" Interface {iface} is UP.")
                 return True
 
             print(f"[!] {iface} is DOWN. Attempt {attempt}/{retries}: restarting network services...")
@@ -72,7 +72,7 @@ class Attack:
             print(f"[✗] {iface} is still DOWN after {retries} attempts.")
             return False
 
-        print(f"[✓] Interface {iface} is UP.")
+        print(f" Interface {iface} is UP.")
         return True
 
 
@@ -198,7 +198,7 @@ class Attack:
         interfaces = subprocess.run(["iwconfig"], capture_output=True, text=True).stdout
 
         if self.iface_mon in interfaces:
-            print(Fore.GREEN + f"[✓] {self.iface_mon} already in monitor mode." + Style.RESET_ALL)
+            print(Fore.GREEN + f" {self.iface_mon} already in monitor mode." + Style.RESET_ALL)
         else:
             print(Fore.YELLOW + f"[+] Enabling monitor mode on {self.iface}..." + Style.RESET_ALL)
             subprocess.run(["sudo", "airmon-ng", "start", self.iface])
@@ -207,7 +207,7 @@ class Attack:
             if self.iface_mon not in interfaces:
                 print(Fore.RED + f"[!] Failed to enable monitor mode ({self.iface_mon} not found)." + Style.RESET_ALL)
                 return
-            print(Fore.GREEN + f"[✓] Monitor mode active on {self.iface_mon}" + Style.RESET_ALL)
+            print(Fore.GREEN + f" Monitor mode active on {self.iface_mon}" + Style.RESET_ALL)
 
         command = (
             f"airodump-ng {self.iface_mon} "
@@ -232,7 +232,7 @@ class Attack:
             print(Fore.RED + "[!] airmon-ng may have failed to create monitor mode." + Style.RESET_ALL)
             return
 
-        print(Fore.GREEN + f"[✓] Monitor mode active on: {self.iface_mon}" + Style.RESET_ALL)
+        print(Fore.GREEN + f" Monitor mode active on: {self.iface_mon}" + Style.RESET_ALL)
         command = (
             f"airodump-ng {self.iface_mon} "
             f"-d {self.mac} "
@@ -338,7 +338,7 @@ class Attack:
             print(Fore.RED + "Failed to retrieve AP information." + Style.RESET_ALL)
             return
 
-        print(Fore.GREEN + f"[✓] AP Selected:" + Style.RESET_ALL)
+        print(Fore.GREEN + f" AP Selected:" + Style.RESET_ALL)
         print(f"   SSID   : {self.essid}")
         print(f"   BSSID  : {self.mac}")
         print(f"   Channel: {self.channel}")
@@ -484,7 +484,7 @@ def main():
                     attack.band = "abg"
                     attack.channeloriented()
                 else:
-                    print(Fore.GREEN + "[✓] Channel and BSSID OK" + Style.RESET_ALL)
+                    print(Fore.GREEN + " Channel and BSSID OK" + Style.RESET_ALL)
 
             elif choice == "2":
                 if not attack.channel:
@@ -541,7 +541,7 @@ def main():
                 print(Fore.CYAN + "Restarting Network Manager…" + Style.RESET_ALL)
                 attack.kill_conflicting_processes()
                 attack.restart_nm()
-                print(Fore.GREEN + "[✓] Network Manager restarted" + Style.RESET_ALL)
+                print(Fore.GREEN + " Network Manager restarted" + Style.RESET_ALL)
 
             elif choice == "0":
                 print(Fore.MAGENTA + "Exiting… Stay ethical!" + Style.RESET_ALL)
@@ -555,5 +555,5 @@ def main():
         sys.exit(0)
         
 if __name__ == "__main__":
-    Animation.animated_banner("Wifi Cracker","By cyb2rS2c", frames=8, delay=0.07)
+    Animation.animated_banner("Wifi Cracker","Author: cyb2rS2c", frames=8, delay=0.07)
     main()
