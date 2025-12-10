@@ -61,9 +61,10 @@ chmod +x setup.sh;source ./setup.sh
 Root privileges are required for most network interface operations.
 
 ## Screenshots
-<img width="642" height="217" alt="image" src="https://github.com/user-attachments/assets/171f223e-016f-4716-bad8-d110b46bae22" />
+<img width="579" height="199" alt="image" src="https://github.com/user-attachments/assets/fe3dedf7-f01d-4c43-9b28-906b7c5f5fd3" />
+<img width="621" height="250" alt="image" src="https://github.com/user-attachments/assets/b6891c9c-be70-468a-9757-b6efbfbf98a4" />
 <img width="956" height="609" alt="image" src="https://github.com/user-attachments/assets/9248abd5-f035-4726-ac08-8aba8d8b7f00" />
-<img width="399" height="193" alt="image2" src="https://github.com/user-attachments/assets/4a1133a9-cd2e-4aaa-9e9f-6b751624cf37" />
+
 
 
 ## Legal Disclaimer
