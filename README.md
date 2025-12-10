@@ -69,7 +69,7 @@ source testenv/bin/activate  # On macOS/Linux
 # testenv\Scripts\activate  # On Windows
 
 # Install the Wi-Fi-Attack package
-pip install Wi-Fi-Attack==4.0.0
+pip install Wi-Fi-Attack==4.0.1
 # Run the wifi-cracker tool
 wifi-cracker
 ```
