@@ -35,6 +35,7 @@ This tool is intended for security professionals and researchers on networks the
 ├── README.md
 ├── requirements.txt
 ├── setup.sh
+├── run.sh (PIP installation)
 └── src
     ├── animation.py
     ├── GenCharlist.py
@@ -61,16 +62,7 @@ chmod +x setup.sh;source ./setup.sh
 
 ## Option 2: Install & Run via pip (Recommended)
 ```
-# Create a virtual environment
-python3 -m venv testenv
-
-# Activate the virtual environment
-source testenv/bin/activate
-
-# Install the Wi-Fi-Attack package
-pip install Wi-Fi-Attack==4.0.1
-# Run the wifi-cracker tool
-wifi-cracker
+sudo chmod +x run.sh;./run.sh
 ```
 Root privileges are required for most network interface operations.
 
