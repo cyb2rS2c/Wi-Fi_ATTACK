@@ -62,7 +62,7 @@ chmod +x setup.sh;source ./setup.sh
 
 ## Option 2: Install & Run via pip (Recommended)
 ```
-sudo chmod +x run.sh;./run.sh
+sudo chmod +x run.sh;source ./run.sh
 ```
 Root privileges are required for most network interface operations.
 
