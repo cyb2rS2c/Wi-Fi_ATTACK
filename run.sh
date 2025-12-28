@@ -6,6 +6,6 @@ if [[ "$EUID" -ne 0 ]]; then
 fi
 
 python3 -m venv testenv; source testenv/bin/activate
-pip install Wi-Fi-Attack==4.0.2
+pip install Wi-Fi-Attack==4.0.3
 clear
 exec  wifi-cracker 
